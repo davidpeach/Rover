@@ -10,54 +10,72 @@ use App\Models\World;
 
 class ControlCentre
 {
-	private $routeParser;
-	private $outputParser;
-	private $rovers = [];
+    private $routeParser;
+    private $outputParser;
+    private $rovers = [];
 
-	public function __construct(RouteParser $routeParser, OutputParser $outputParser)
-	{
-		$this->routeParser = $routeParser;
-		$this->outputParser = $outputParser;
-	}
+    /**
+     * @param RouteParser
+     * @param OutputParser
+     */
+    public function __construct(RouteParser $routeParser, OutputParser $outputParser)
+    {
+        $this->routeParser = $routeParser;
+        $this->outputParser = $outputParser;
+    }
 
-	public function configureRoutes(string $routeData)
-	{
-		$routeConfigs = explode("\n", $routeData);
+    /**
+     * Setup new Rovers with directions and place them in the new World.
+     * @param  string
+     * @return void
+     */
+    public function configureRoutes(string $routeData): void
+    {
+        $routeConfigs = explode("\n", $routeData);
 
-		$worldSize = array_shift($routeConfigs);
-		$world = new World($worldSize);
+        $worldSize = array_shift($routeConfigs);
+        $world = new World($worldSize);
 
-		foreach ($routeConfigs as $config) {
-			$this->routeParser->parse($config);
-			$rover = new Rover;
+        foreach ($routeConfigs as $config) {
+            $this->routeParser->parse($config);
+            $rover = app(Rover::class);
 
-			$rover->placeInWorld($world, $this->routeParser->getStartingLocation());
-			$rover->setMoves($this->routeParser->getMoves());
+            $rover->placeInWorld($world, $this->routeParser->getStartingLocation());
+            $rover->setMoves($this->routeParser->getMoves());
 
-			$this->rovers[] = $rover;
-		}
-	}
+            $this->rovers[] = $rover;
+        }
+    }
 
-	public function executeRoutes()
-	{
-		foreach ($this->rovers as $rover) {
-			try {
-				$rover->execute();
-			} catch (RoverOffGridException $e) {
-				$rover->setAsLost();
-			}
-		}
-	}
+    /**
+     * Execute the routes of each of the Rovers.
+     * @return void
+     */
+    public function executeRoutes(): void
+    {
+        foreach ($this->rovers as $rover) {
+            try {
+                $rover->execute();
+            } catch (RoverOffGridException $e) {
+                $rover->setAsLost();
+            }
+        }
+    }
 
-	public function locateRovers()
-	{
-		$locations = [];
+    /**
+     * Locate all of the Rovers and return string location in (x, y, orientation)
+     * format. potentially with "LOST" if gone off grid.
+     * @return string
+     */
+    public function locateRovers(): string
+    {
+        $locations = [];
 
-		foreach ($this->rovers as $rover) {
-			$locations[] = $this->outputParser->parse($rover->getLastKnownLocation(), $rover->isLost());
-		}
+        foreach ($this->rovers as $rover) {
+            $locations[] = $this->outputParser->parse($rover->getLastKnownLocation(), $rover->isLost());
+        }
 
-		return implode("\n", $locations);
-	}
+        return implode("\n", $locations);
+    }
 
 }

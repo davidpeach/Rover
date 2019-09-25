@@ -15,8 +15,8 @@ class WorldTest extends TestCase
     	$world = new World('4 8');
 
     	$this->assertEquals([
-    		'x' => 4,
-    		'y' => 8,
+    		'm' => 4,
+    		'n' => 8,
     	], $world->size());
     }
 
@@ -27,7 +27,7 @@ class WorldTest extends TestCase
 
     	$this->assertTrue($world->checkMoveIsValid([
     		'x' => 3,
-    		'y' => 5,
+    		'y' => 4,
     	]));
     }
 
@@ -38,7 +38,7 @@ class WorldTest extends TestCase
 
     	$this->assertFalse($world->checkMoveIsValid([
     		'x' => 3,
-    		'y' => 6,
+    		'y' => 5,
     	]));
     }
 

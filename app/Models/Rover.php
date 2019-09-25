@@ -7,128 +7,109 @@ use App\Models\World;
 
 class Rover
 {
-	private $world;
+    private $world;
 
-	private $startingLocation;
+    private $lastKnownLocation = [];
 
-	private $lastKnownLocation = [];
+    private $lost = false;
 
-	private $moves;
+    private $validMoves;
 
-	private $inRange = true;
+    public function __construct(array $validMoves)
+    {
+        $this->validMoves = $validMoves;
+    }
 
-	private $directions = [
-		'N',
-		'E',
-		'S',
-		'W'
-	];
+    /**
+     * @param  World $world
+     * @param  array $startingLocation
+     * @return void
+     */
+    public function placeInWorld(World $world, array $startingLocation): void
+    {
+        $this->world = $world;
 
-	public function placeInWorld(World $world, array $startingLocation)
-	{
-		$this->world = $world;
+        $this->setLastKnownLocation($startingLocation);
+    }
 
-		$this->setLastKnownLocation($startingLocation);
-	}
+    /**
+     * @param array $moves
+     * @return void
+     */
+    public function setMoves(array $moves): void
+    {
+        $this->moves = $moves;
+    }
 
-	public function setMoves(array $moves)
-	{
-		$this->moves = $moves;
-	}
+    /**
+     * @return array
+     */
+    public function getMoves(): array
+    {
+        return $this->moves;
+    }
 
-	public function getMoves(): array
-	{
-		return $this->moves;
-	}
+    /**
+     * @param array
+     * @return void
+     */
+    public function setLastKnownLocation(array $location): void
+    {
+        $this->lastKnownLocation = array_merge($this->lastKnownLocation, $location);
+    }
 
-	public function setLastKnownLocation($location)
-	{
-		$this->lastKnownLocation = array_merge($this->lastKnownLocation, $location);
-	}
+    /**
+     * @return array
+     */
+    public function getLastKnownLocation(): array
+    {
+        return $this->lastKnownLocation;
+    }
 
-	public function getLastKnownLocation()
-	{
-		return $this->lastKnownLocation;
-	}
+    /**
+     * Execute all of the programmed moves
+     * @return void
+     */
+    public function execute(): void
+    {
+        foreach ($this->moves as $move) {
 
-	public function execute()
-	{
-		foreach ($this->moves as $nextMove) {
-			if ($nextMove === 'F') {
-				$this->moveForward();
-			} else {
-				$this->updateOrientation($nextMove);
-			}
-		}
-	}
+            if ( ! array_key_exists($move, $this->validMoves)) {
+                continue;
+            }
 
-	public function moveForward()
-	{
-		$facing = $this->getLastKnownLocation()['orientation'];
+            $movement = app($this->validMoves[$move]);
 
-		switch ($facing) {
-			case 'N':
-				$plannedMove = [
-					'x' => $this->getLastKnownLocation()['x'],
-					'y' => ++$this->getLastKnownLocation()['y'],
-				];
-				break;
-			case 'E':
-				$plannedMove = [
-					'x' => ++$this->getLastKnownLocation()['x'],
-					'y' => $this->getLastKnownLocation()['y'],
-				];
-				break;
-			case 'S':
-				$plannedMove = [
-					'x' => $this->getLastKnownLocation()['x'],
-					'y' => --$this->getLastKnownLocation()['y'],
-				];
-				break;
-			case 'W':
-				$plannedMove = [
-					'x' => --$this->getLastKnownLocation()['x'],
-					'y' => $this->getLastKnownLocation()['y'],
-				];
-				break;
-			default:
-				break;
-		}
+            $plannedMove = (new $movement)
+                ->inWorld($this->world)
+                ->from($this->getLastKnownLocation());
 
-		if ($this->world->checkMoveIsValid($plannedMove)) {
-			$this->setLastKnownLocation($plannedMove);
-			return;
-		}
+            try {
+                $plannedMove->attempt();
 
-		throw new RoverOffGridException;
-	}
+                $this->setLastKnownLocation(
+                    $plannedMove->getNextLocation()
+                );
+            } catch (RoverOffGridException $e) {
+                throw $e;
+            }
+        }
+    }
 
-	public function updateOrientation(string $turnDirection)
-	{
-		if ($turnDirection === 'L') {
-			$currentKey = array_search($this->getLastKnownLocation()['orientation'], $this->directions);
-			--$currentKey;
-			if ($currentKey < 0) {
-				$currentKey = count($this->directions) - 1;
-			}
-		} else {
-			$currentKey = array_search($this->getLastKnownLocation()['orientation'], $this->directions);
-			++$currentKey;
-			if ($currentKey > count($this->directions) - 1) {
-				$currentKey = 0;
-			}
-		}
-		$this->setLastKnownLocation(['orientation' => $this->directions[$currentKey]]);
-	}
+    /**
+     * @return void
+     */
+    public function setAsLost(): void
+    {
+        $this->lost = true;
+    }
 
-	public function setAsLost(): void
-	{
-		$this->inRange = false;
-	}
-
-	public function isLost(): bool
-	{
-		return ! $this->inRange;
-	}
+    /**
+     * @return boolean
+     */
+    public function isLost(): bool
+    {
+        return $this->lost;
+    }
 
 }
